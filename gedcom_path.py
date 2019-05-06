@@ -27,7 +27,9 @@ class Individual:
         self.children = []
         self.families = []
         self.parent_family = None
-
+    def __repr__(self):
+        return self.name + ", children = " + str(self.children)
+        
 class Population:
     def __init__(self):
         self.individuals = {}
@@ -62,20 +64,25 @@ class Population:
         return self.get_name(identifier) + "(" + identifier + ")"
     def print_info(self, identifier, print_family=False):
         print(self.get_individual(identifier).name)
+
     def search_tree(self, id, descendent_id):
-        found_descendent = False
+        tree = None
         if descendent_id == id:
-            print("# Family branch start")
-            self.print_info(id)
-            found_descendent = True
+            tree = [[]]
         else:
             children = self.get_children(id)
             if children is not None:
                 for child in children:
-                    if self.search_tree(child, descendent_id):
-                        self.print_info(id)
-                        found_descendent = True
-        return found_descendent
+                    child_tree = self.search_tree(child, descendent_id)
+                    if child_tree is not None:
+                        for i in child_tree:
+                            i.append(self.get_name(child))
+                        if tree is None:
+                            tree = child_tree
+                        else:
+                            tree.extend(child_tree)
+        return tree
+
     def print_path(self, ancester_name, descendent_name):
         found_ancester = self.get_closest_match(ancester_name)
         ancester_id = self.get_identifier(found_ancester)
@@ -86,8 +93,15 @@ class Population:
         found_descendent = self.get_closest_match(descendent_name)
         descendent_id = self.get_identifier(found_descendent)
         print("Searched for descendent " + descendent_name + ". Found " + found_descendent + " with id " + descendent_id)
-        if self.search_tree(ancester_id, descendent_id):
-            self.print_info(ancester_id)
+        tree = self.search_tree(ancester_id, descendent_id)
+        if tree is not None:
+            count = 0
+            for i in tree:
+                i.append(self.get_name(ancester_id))
+                count += 1
+                print("# Branch number " + str(count))
+                print(i)
+            print("Found " + str(count) + " branches.")
         else:
             print("Could not find descendent " + descendent_name + " of ancester " + ancester_name) 
         self.print_info(ancester_id, True)
@@ -129,8 +143,6 @@ class FileParser:
                     current_individual.parent_family = words[2]
             elif current_family is not None and len(words) > 1:
                 if words[1] == "CHIL":
-                    #if len(current_family.children) > 10:
-                    #    raise Exception, "Line " + str(line_number) + ": Family " + str(families)
                     current_family.children.append(words[2])
                 elif words[1] == "HUSB":
                     current_family.husbond = words[2]
@@ -180,7 +192,15 @@ def main(argv):
     file_parser.parse_file(content, population)
     if ancester_name is not None and descendent_name is not None:
         population.print_path(ancester_name, descendent_name)
-    
+    elif ancester_name is not None:
+        name = population.get_closest_match(ancester_name)
+        id = population.get_identifier(name)
+        children = population.get_children(id)
+        print("Name = " + name)
+        print("Children:")
+        for i in children:
+            print(population.get_name(i))
+        
 if __name__ == "__main__":
    main(sys.argv[1:])
 
