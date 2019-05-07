@@ -56,7 +56,7 @@ class Population:
         return None
     def get_identifiers(self):
         return self.individuals.keys()
-    def get_closest_match(self, name):
+    def find_closest_match(self, name):
         return process.extractOne(name, self.get_names())[0]
     def get_children(self, identifier):
         return self.get_individual(identifier).children
@@ -83,28 +83,37 @@ class Population:
                             tree.extend(child_tree)
         return tree
 
-    def print_path(self, ancester_name, descendent_name):
-        found_ancester = self.get_closest_match(ancester_name)
+    def print_path(self, ancester_name, descendent_name, contains_names):
+        found_ancester = self.find_closest_match(ancester_name)
         ancester_id = self.get_identifier(found_ancester)
         print("Searched for ancester " + ancester_name + ". Found " + found_ancester + " with id " + ancester_id) 
         ancester_children = self.get_children(ancester_id)
         if ancester_children is not None:
             print("Ancester children = " + str(ancester_children))
-        found_descendent = self.get_closest_match(descendent_name)
+        found_descendent = self.find_closest_match(descendent_name)
         descendent_id = self.get_identifier(found_descendent)
         print("Searched for descendent " + descendent_name + ". Found " + found_descendent + " with id " + descendent_id)
         tree = self.search_tree(ancester_id, descendent_id)
         if tree is not None:
             count = 0
+            similar_count = 0
             for i in tree:
                 i.append(self.get_name(ancester_id))
-                count += 1
-                print("# Branch number " + str(count))
-                print(i)
-            print("Found " + str(count) + " branches.")
+                matches = 0
+                for x in tree:
+                    if x == i:
+                        matches += 1
+                for x in contains_names:
+                    if x not in i:
+                        matches = 0
+                if matches == 1:
+                    count += 1
+                    print("# Branch number " + str(count))
+                    print(i)
+                elif matches > 1:
+                    similar_count += 1
         else:
             print("Could not find descendent " + descendent_name + " of ancester " + ancester_name) 
-        self.print_info(ancester_id, True)
 
 class FileParser:
     def parse_file(self, content, population):
@@ -157,14 +166,13 @@ class FileParser:
 
 
 def usage():
-    print('gedcom_path.py -f <filename> -a <name> -d <name>')
+    print('gedcom_path.py -f <filename> -n <list>')
     
 def main(argv):
     inputfile = None
-    ancester_name = None
-    descendent_name = None
+    names = None
     try:
-        opts, args = getopt.getopt(argv,"hf:a:d:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -174,26 +182,35 @@ def main(argv):
             sys.exit()
         elif opt in ("-f", "--ifile"):
             inputfile = arg
-        elif opt == "-a":
-            ancester_name = arg
-        elif opt == "-d":
-            descendent_name = arg
+        elif opt == "-n":
+            names = arg.split(',')
 
     if inputfile is None:
         print("Input file missing")
         usage()
         sys.exit(2)
-       
+
+    if names is None:
+        print("Name list is missing")
+        usage()
+        sys.exit(2)
+        
     with open(inputfile, 'r', errors='replace') as f:
         content = f.readlines()
 
     population = Population()
     file_parser = FileParser()
     file_parser.parse_file(content, population)
-    if ancester_name is not None and descendent_name is not None:
-        population.print_path(ancester_name, descendent_name)
-    elif ancester_name is not None:
-        name = population.get_closest_match(ancester_name)
+
+    names = [population.find_closest_match(i) for i in names]
+     
+    if len(names) > 1:
+        descendent_name = names[0]
+        ancester_name = names[-1]
+        contains_names = names[1:-1]
+        population.print_path(ancester_name, descendent_name, contains_names)
+    else:
+        name = names[0]
         id = population.get_identifier(name)
         children = population.get_children(id)
         print("Name = " + name)
