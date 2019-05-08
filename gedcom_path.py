@@ -1,8 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-import sys, getopt
+import sys, getopt, operator
 
 from fuzzywuzzy import process
+from fuzzywuzzy import fuzz
 
 class Family:
     def __init__(self, identifier, population):
@@ -84,15 +85,8 @@ class Population:
         return tree
 
     def print_path(self, ancester_name, descendent_name, contains_names):
-        found_ancester = self.find_closest_match(ancester_name)
-        ancester_id = self.get_identifier(found_ancester)
-        print("Searched for ancester " + ancester_name + ". Found " + found_ancester + " with id " + ancester_id) 
-        ancester_children = self.get_children(ancester_id)
-        if ancester_children is not None:
-            print("Ancester children = " + str(ancester_children))
-        found_descendent = self.find_closest_match(descendent_name)
-        descendent_id = self.get_identifier(found_descendent)
-        print("Searched for descendent " + descendent_name + ". Found " + found_descendent + " with id " + descendent_id)
+        ancester_id = self.get_identifier(ancester_name)
+        descendent_id = self.get_identifier(descendent_name)
         tree = self.search_tree(ancester_id, descendent_id)
         if tree is not None:
             count = 0
@@ -115,6 +109,46 @@ class Population:
         else:
             print("Could not find descendent " + descendent_name + " of ancester " + ancester_name) 
 
+class IndividualDoubles:
+    
+    def get_doubles(self, population, size):
+        identifiers = population.get_identifiers()
+        doubles = []
+        dot_size = 10000
+        match_display_size = 100 * dot_size
+        count = 0
+        print("Searching through " + str(len(identifiers)) + " names to find doubles." +
+              " A dot printed on screen means that " + str(dot_size) +
+              " name matches has been calculated...")
+        for i in identifiers:
+            for j in identifiers:
+                if i != j:
+                    name_i = population.get_name(i)
+                    name_j = population.get_name(j)
+                    score = fuzz.ratio(name_i, name_j)
+                    if score < 100:
+                        if len(doubles) > 0:
+                            lowest_score, name1, id1, name2, id2 = doubles[-1]
+                        else:
+                            lowest_score = 0
+                        if score > lowest_score:
+                            match_exists = False
+                            for s, n1, i1, n2, i2 in doubles:
+                                if i1 == j and i2 == i:
+                                    match_exists = True
+                                    break
+                            if not match_exists:
+                                doubles.append((score, name_i, i, name_j, j))
+                                doubles.sort(key=operator.itemgetter(0), reverse=True)
+                                doubles = doubles[0:size]
+                    if (count % dot_size) == 0:
+                        sys.stdout.write('.')
+                        sys.stdout.flush()
+                    if (count % match_display_size) == 0:
+                        print("\nDoubles = " + str(doubles))
+                    count += 1
+        return doubles
+    
 class FileParser:
     def parse_file(self, content, population):
         current_individual = None
@@ -166,13 +200,14 @@ class FileParser:
 
 
 def usage():
-    print('gedcom_path.py -f <filename> -n <list>')
+    print('gedcom_path.py -f <filename> -n <list> -d <number>')
     
 def main(argv):
     inputfile = None
     names = None
+    number_of_doubles = None
     try:
-        opts, args = getopt.getopt(argv,"hf:n:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -184,17 +219,14 @@ def main(argv):
             inputfile = arg
         elif opt == "-n":
             names = arg.split(',')
+        elif opt == "-d":
+            number_of_doubles = int(arg)
 
     if inputfile is None:
         print("Input file missing")
         usage()
         sys.exit(2)
 
-    if names is None:
-        print("Name list is missing")
-        usage()
-        sys.exit(2)
-        
     with open(inputfile, 'r', errors='replace') as f:
         content = f.readlines()
 
@@ -202,21 +234,28 @@ def main(argv):
     file_parser = FileParser()
     file_parser.parse_file(content, population)
 
-    names = [population.find_closest_match(i) for i in names]
-     
-    if len(names) > 1:
-        descendent_name = names[0]
-        ancester_name = names[-1]
-        contains_names = names[1:-1]
-        population.print_path(ancester_name, descendent_name, contains_names)
-    else:
-        name = names[0]
-        id = population.get_identifier(name)
-        children = population.get_children(id)
-        print("Name = " + name)
-        print("Children:")
-        for i in children:
-            print(population.get_name(i))
+    if names is not None:
+
+        names = [population.find_closest_match(i) for i in names]
+
+        if len(names) > 1:
+            descendent_name = names[0]
+            ancester_name = names[-1]
+            contains_names = names[1:-1]
+            population.print_path(ancester_name, descendent_name, contains_names)
+        else:
+            name = names[0]
+            id = population.get_identifier(name)
+            children = population.get_children(id)
+            print("Name = " + name)
+            print("Children:")
+            for i in children:
+                print(population.get_name(i))
+
+    if number_of_doubles is not None:
+        i = IndividualDoubles()
+        doubles = i.get_doubles(population, number_of_doubles)
+        print(str(doubles))
         
 if __name__ == "__main__":
    main(sys.argv[1:])
