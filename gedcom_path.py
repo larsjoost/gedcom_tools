@@ -66,7 +66,7 @@ class Population:
     def print_info(self, identifier, print_family=False):
         print(self.get_individual(identifier).name)
 
-    def search_tree(self, id, descendent_id):
+    def search_ancester_tree(self, id, descendent_id):
         tree = None
         if descendent_id == id:
             tree = [[]]
@@ -74,45 +74,49 @@ class Population:
             children = self.get_children(id)
             if children is not None:
                 for child in children:
-                    child_tree = self.search_tree(child, descendent_id)
+                    child_tree = self.search_ancester_tree(child, descendent_id)
                     if child_tree is not None:
                         for i in child_tree:
-                            i.append(self.get_name(child))
+                            i.append(child)
                         if tree is None:
                             tree = child_tree
                         else:
                             tree.extend(child_tree)
         return tree
 
-    def print_path(self, ancester_name, descendent_name, contains_names):
+    def search_tree(self, ancester_id, descendent_id):
+        tree = self.search_ancester_tree(ancester_id, descendent_id)
+        if tree is not None:
+            for i in tree:
+                i.append(ancester_id)
+        return tree
+
+    def get_branches(self, ancester_name, descendent_name, contains_names):
         ancester_id = self.get_identifier(ancester_name)
         descendent_id = self.get_identifier(descendent_name)
         tree = self.search_tree(ancester_id, descendent_id)
+        matched_branches = []
         if tree is not None:
-            count = 0
-            similar_count = 0
-            for i in tree:
-                i.append(self.get_name(ancester_id))
-                matches = 0
-                for x in tree:
-                    if x == i:
-                        matches += 1
+            for branch in tree:
+                matches = True
                 for x in contains_names:
-                    if x not in i:
-                        matches = 0
-                if matches == 1:
-                    count += 1
-                    print("# Branch number " + str(count))
-                    print(i)
-                elif matches > 1:
-                    similar_count += 1
-        else:
-            print("Could not find descendent " + descendent_name + " of ancester " + ancester_name) 
+                    if self.get_identifier(x) not in branch:
+                        matches = False
+                if matches:
+                    matched_branches.append(branch)
+        return matched_branches
+    
+    def print_branches(self, tree):
+        count = 1
+        for branch in tree:
+            print("# Branch number " + str(count))
+            for x in branch:
+                print(self.get_name(x))
+            count += 1
 
 class IndividualDoubles:
     
-    def get_doubles(self, population, size):
-        identifiers = population.get_identifiers()
+    def get_doubles(self, population, identifiers, size):
         doubles = []
         dot_size = 10000
         match_display_size = 100 * dot_size
@@ -134,7 +138,7 @@ class IndividualDoubles:
                         if score > lowest_score:
                             match_exists = False
                             for s, n1, i1, n2, i2 in doubles:
-                                if i1 == j and i2 == i:
+                                if (i in (i1, i2)) and (j in (i1, i2)):
                                     match_exists = True
                                     break
                             if not match_exists:
@@ -242,7 +246,13 @@ def main(argv):
             descendent_name = names[0]
             ancester_name = names[-1]
             contains_names = names[1:-1]
-            population.print_path(ancester_name, descendent_name, contains_names)
+            tree = population.get_branches(ancester_name, descendent_name, contains_names)
+            population.print_branches(tree)
+            if number_of_doubles is not None:
+                individual_doubles = IndividualDoubles()
+                identifiers = [i for sublist in tree for i in sublist]
+                doubles = individual_doubles.get_doubles(population, identifiers, number_of_doubles)
+                print(str(doubles))
         else:
             name = names[0]
             id = population.get_identifier(name)
@@ -252,9 +262,10 @@ def main(argv):
             for i in children:
                 print(population.get_name(i))
 
-    if number_of_doubles is not None:
+    elif number_of_doubles is not None:
         i = IndividualDoubles()
-        doubles = i.get_doubles(population, number_of_doubles)
+        identifiers = population.get_identifiers()
+        doubles = i.get_doubles(population, identifiers, number_of_doubles)
         print(str(doubles))
         
 if __name__ == "__main__":
