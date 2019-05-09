@@ -28,6 +28,16 @@ class Family:
         elif line_parser.command[0] == "WIFE":
             self.wife = line_parser.command[1]
 
+class IndividualBirthParser:
+    def __init__(self, line_parser):
+        self.date = None
+        self.index = line_parser.index
+    def parse_command(self, line_parser):
+        if line_parser.index <= self.index:
+            return None
+        if line_parser.command[0] == "DATE":
+            self.date = line_parser.rest
+        return self
 class Individual:
     def __init__(self, identifier):
         self.identifier = identifier
@@ -35,21 +45,30 @@ class Individual:
         self.children = []
         self.families = []
         self.parent_family = None
-        self.sex = None
+        self.gender = None
+        self.birthday = None
+        self._birth_parser = None
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
     def parse_command(self, line_parser):
-        if line_parser.command[0] == "NAME":
-            name = line_parser.rest
-            name = name.replace('/','')
-            self.name = name
-        elif line_parser.command[0] == "FAMS":
-            self.families.append(line_parser.command[1])
-        elif line_parser.command[0] == "FAMC":
-            assert self.parent_family is None
-            self.parent_family = line_parser.command[1]
-        elif line_parser.command[0] == "SEX":
-            self.sex = line_parser.command[1]
+        if self._birth_parser is not None:
+            if self._birth_parser.parse_command(line_parser) is None:
+                self.birthday = self._birth_parser.date
+                self._birth_parser = None
+        if self._birth_parser is None:
+            if line_parser.command[0] == "BIRT":
+                self._birth_parser = IndividualBirthParser(line_parser)
+            elif line_parser.command[0] == "NAME":
+                name = line_parser.rest
+                name = name.replace('/','')
+                self.name = name
+            elif line_parser.command[0] == "FAMS":
+                self.families.append(line_parser.command[1])
+            elif line_parser.command[0] == "FAMC":
+                assert self.parent_family is None
+                self.parent_family = line_parser.command[1]
+            elif line_parser.command[0] == "SEX":
+                self.gender = line_parser.command[1]
             
 class Population:
     def __init__(self):
@@ -66,8 +85,10 @@ class Population:
         return self.individuals[identifier]
     def get_name(self, identifier):
         return self.individuals[identifier].name
-    def get_sex(self, identifier):
-        return self.individuals[identifier].sex
+    def get_gender(self, identifier):
+        return self.individuals[identifier].gender
+    def get_birthday(self, identifier):
+        return self.individuals[identifier].birthday
     def get_names(self, identifiers=None):
         if identifiers is None:
             identifiers = self.individuals.keys()
@@ -131,7 +152,8 @@ class Population:
     def apply_format(self, identifier, format):
         x = format
         x = x.replace("%n", self.get_name(identifier))
-        x = x.replace("%s", self.get_sex(identifier))
+        x = x.replace("%g", self.get_gender(identifier))
+        x = x.replace("%b", self.get_birthday(identifier))
         return x
     def print_branches(self, tree, format):
         count = 1
@@ -153,7 +175,7 @@ class IndividualDoubles:
               " name matches has been calculated...")
         for i in identifiers:
             for j in identifiers:
-                if i != j and population.get_sex(i) == population.get_sex(j):
+                if i != j and population.get_gender(i) == population.get_gender(j):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     score = fuzz.ratio(name_i, name_j)
