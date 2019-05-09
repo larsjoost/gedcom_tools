@@ -4,10 +4,11 @@ import gedcom_path
 
 class IndividualDoubles(unittest.TestCase):
 
-    def test_get_doubles(self):
-        y = gedcom_path.IndividualDoubles()
-        x = ["Lone", "Peder", "Anne", "Lars", "Pande", "Niels", "Leif", "Lars J"]
-        assert({'Anne': ['Pande'], 'Lars': ['Lars J']} == y.get_doubles(x, 3))
+    def test_is_int(self):
+        y = gedcom_path.LineParser()
+        t = "0 HEAD"
+        s = t.split()
+        assert(y.is_int(s[0]))
         
 if __name__ == '__main__':
     unittest.main()

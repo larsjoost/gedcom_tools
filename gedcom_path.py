@@ -20,7 +20,14 @@ class Family:
         return self.to_string()
     def __str__(self):
         return self.to_string()
-    
+    def parse_command(self, line_parser):
+        if line_parser.command[0] == "CHIL":
+            self.children.append(line_parser.command[1])
+        elif line_parser.command[0] == "HUSB":
+            self.husbond = line_parser.command[1]
+        elif line_parser.command[0] == "WIFE":
+            self.wife = line_parser.command[1]
+
 class Individual:
     def __init__(self, identifier):
         self.identifier = identifier
@@ -30,6 +37,16 @@ class Individual:
         self.parent_family = None
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
+    def parse_command(self, line_parser):
+        if line_parser.command[0] == "NAME":
+            name = line_parser.rest
+            name = name.replace('/','')
+            self.name = name
+        elif line_parser.command[0] == "FAMS":
+            self.families.append(line_parser.command[1])
+        elif line_parser.command[0] == "FAMC":
+            assert self.parent_family is None
+            self.parent_family = line_parser.command[1]
         
 class Population:
     def __init__(self):
@@ -153,55 +170,80 @@ class IndividualDoubles:
                     count += 1
         return doubles
     
+class LineParser:
+    def __init__(self):
+        self.line_number = 0
+        self.clear_values()
+    def clear_values(self):
+        self.command = [None, None]
+        self.rest = None
+        self.index = None
+    def is_int(self, text):
+        try:
+            int(text)
+            return True
+        except ValueError:
+            return False
+    def parse_next_line(self, content, valid_command):
+        self.line_number += 1
+        return self.parse_line(content, valid_command)
+    def parse_line(self, content, valid_command):
+        try:
+            line = content[self.line_number]
+        except IndexError:
+            return valid_command
+        words = line.split()
+        try:
+            index = words[0]
+        except IndexError:
+            return self.parse_next_line(content, valid_command)
+        if not valid_command:
+            if self.is_int(index):
+                self.index = int(index)
+                valid_command = True
+                self.command[0:2] = words[1:3]
+                try:
+                    self.rest = line.split(' ', 2)[2].strip()
+                except IndexError:
+                    self.rest = None
+                return self.parse_next_line(content, valid_command)
+            else:
+                print("Line " + str(self.line_number) + " does not begin with integer: '" + index + "' " + str([ord(i) for i in index]))
+                print(line)
+        elif not self.is_int(index): 
+            self.rest += line
+            self.parse_next_line(content, valid_command)
+        return valid_command
+    
+    def next_command(self, content):
+        return self.parse_line(content, False)
+        
 class FileParser:
+                    
     def parse_file(self, content, population):
-        current_individual = None
-
+        line_parser = LineParser()
+        current_parser = None
         families = {}
-        current_family = None
-
-        line_number = 0
-
-        for line in content:
-            line_number += 1
-            words = line.split()
-            try:
-                if words[0] == "0":
-                    current_individual = None
-                    current_family = None
-                    identifier = words[1]
-                    if words[2] == "INDI":
-                        current_individual = Individual(identifier)
-                        population.add_individual(current_individual)
-                    elif words[2] == "FAM":
-                        current_family = Family(identifier, population)
-                        families[identifier] = current_family
-            except IndexError:
-                pass
-            if current_individual is not None and len(words) > 1:
-                if words[1] == "NAME":
-                    name = line.split(' ', 2)[2].strip()
-                    name = name.replace('/','')
-                    current_individual.name = name
-                elif words[1] == "FAMS":
-                    current_individual.families.append(words[2])
-                elif words[1] == "FAMC":
-                    assert current_individual.parent_family is None
-                    current_individual.parent_family = words[2]
-            elif current_family is not None and len(words) > 1:
-                if words[1] == "CHIL":
-                    current_family.children.append(words[2])
-                elif words[1] == "HUSB":
-                    current_family.husbond = words[2]
-                elif words[1] == "WIFE":
-                    current_family.wife = words[2]
+        while line_parser.next_command(content):
+            if line_parser.index == 0:
+                current_parser = None
+                try:
+                    identifier = line_parser.command[0]
+                    if line_parser.command[1] == "INDI":
+                        current_parser = Individual(identifier)
+                        population.add_individual(current_parser)
+                    elif line_parser.command[1] == "FAM":
+                        current_parser = Family(identifier, population)
+                        families[identifier] = current_parser
+                except IndexError:
+                    pass
+            elif current_parser is not None:
+                current_parser.parse_command(line_parser)
 
         for i in families.keys():
             family = families[i]
             population.add_children(family.husbond, family.children)
             population.add_children(family.wife, family.children)
-            
-
 
 def usage():
     print('gedcom_path.py -f <filename> -n <list> -d <number>')
@@ -231,7 +273,7 @@ def main(argv):
         usage()
         sys.exit(2)
 
-    with open(inputfile, 'r', errors='replace') as f:
+    with open(inputfile, 'r', errors='replace', encoding='utf-8-sig') as f:
         content = f.readlines()
 
     population = Population()
