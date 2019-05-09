@@ -57,7 +57,7 @@ class Date:
     
 class DateParser:
     def _parse(self, date):
-        supported_formats = ["%d %b %Y", "%Y", "ABT %Y", "AFT %Y", "BEF %Y"]
+        supported_formats = ["%d %b %Y", "%b %Y", "%Y", "ABT %Y", "AFT %Y", "BEF %Y"]
         for i in supported_formats:
             try:
                 parsed_date = datetime.datetime.strptime(date, i)
@@ -255,7 +255,7 @@ class IndividualDoubles:
         for i in identifiers:
             for j in identifiers:
                 year_difference = population.year_difference(i, j)
-                if i != j and population.does_gender_match(i, j) and (year_difference is None or year_difference < 5):
+                if i != j and population.does_gender_match(i, j) and (year_difference is None or year_difference < 2):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     name_i_valid = name_i is not None and len(name_i) > 0
