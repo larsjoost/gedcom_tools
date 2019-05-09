@@ -35,6 +35,7 @@ class Individual:
         self.children = []
         self.families = []
         self.parent_family = None
+        self.sex = None
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
     def parse_command(self, line_parser):
@@ -47,7 +48,9 @@ class Individual:
         elif line_parser.command[0] == "FAMC":
             assert self.parent_family is None
             self.parent_family = line_parser.command[1]
-        
+        elif line_parser.command[0] == "SEX":
+            self.sex = line_parser.command[1]
+            
 class Population:
     def __init__(self):
         self.individuals = {}
@@ -63,6 +66,8 @@ class Population:
         return self.individuals[identifier]
     def get_name(self, identifier):
         return self.individuals[identifier].name
+    def get_sex(self, identifier):
+        return self.individuals[identifier].sex
     def get_names(self, identifiers=None):
         if identifiers is None:
             identifiers = self.individuals.keys()
@@ -143,7 +148,7 @@ class IndividualDoubles:
               " name matches has been calculated...")
         for i in identifiers:
             for j in identifiers:
-                if i != j:
+                if i != j and population.get_sex(i) == population.get_sex(j):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     score = fuzz.ratio(name_i, name_j)
