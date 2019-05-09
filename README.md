@@ -23,4 +23,4 @@ Merge duplicate individuals
 
 Print all info of individual
 
-
+Find all unconnected individuals

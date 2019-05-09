@@ -85,6 +85,8 @@ class Individual:
         self.identifier = identifier
         self.name = None
         self.children = []
+        self.father = None
+        self.mother = None
         self.families = []
         self.parent_family = None
         self.gender = None
@@ -123,6 +125,10 @@ class Population:
     def add_children(self, identifier, children):
         for i in children:
             self.add_child(identifier, i)
+    def add_father(self, identifier, father):
+        self.individuals[identifier].father = father
+    def add_mother(self, identifier, mother):
+        self.individuals[identifier].mother = mother
     def get_individual(self, identifier):
         return self.individuals[identifier]
     def get_name(self, identifier):
@@ -157,6 +163,16 @@ class Population:
         return process.extractOne(name, self.get_names())[0]
     def get_children(self, identifier):
         return self.get_individual(identifier).children
+    def get_father(self, identifier):
+        return self.get_individual(identifier).father
+    def get_mother(self, identifier):
+        return self.get_individual(identifier).mother
+    def get_parents(self, identifier):
+        return [self.get_father(identifier), self.get_mother(identifier)]
+    def get_family_members(self, identifier):
+        x = self.get_children(identifier).copy()
+        x.extend(self.get_parents(identifier))
+        return x
     def get_name_and_id(self, identifier):
         return self.get_name(identifier) + "(" + identifier + ")"
     def print_info(self, identifier, print_family=False):
@@ -263,7 +279,25 @@ class IndividualDoubles:
                     self.print_doubles(doubles)
                 count += 1
         return doubles
-    
+
+class UnconnectedIndividuals:
+    def mark_connections(self, population, connected, identifier):
+        if not connected[identifier]:
+            connected[identifier] = True
+            family_members = population.get_family_members(identifier)
+            for i in family_members:
+                if i is not None:
+                    self.mark_connections(population, connected, i)
+    def find(self, population, identifier):
+        connected = dict((i, False) for i in population.get_identifiers())
+        sys.setrecursionlimit(len(connected))
+        self.mark_connections(population, connected, identifier)
+        unconnected = []
+        for i in connected.keys():
+            if not connected[i]:
+                unconnected.append(i)
+        return unconnected
+
 class LineParser:
     def __init__(self):
         self.line_number = 0
@@ -338,17 +372,21 @@ class FileParser:
             family = families[i]
             population.add_children(family.husbond, family.children)
             population.add_children(family.wife, family.children)
-
+            for i in family.children:
+                population.add_father(i, family.husbond)
+                population.add_mother(i, family.wife)
+            
 def usage():
-    print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format>')
+    print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format> -u')
     
 def main(argv):
     inputfile = None
     names = None
     number_of_doubles = None
+    show_unconnected = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:u",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -362,6 +400,8 @@ def main(argv):
             names = arg.split(',')
         elif opt == "-d":
             number_of_doubles = int(arg)
+        elif opt == "-u":
+            show_unconnected = True
         elif opt == "-x":
             format = arg
 
@@ -394,13 +434,19 @@ def main(argv):
                 individual_doubles.print_doubles(doubles)
         else:
             name = names[0]
-            id = population.get_identifier(name)
-            children = population.get_children(id)
+            identifier = population.get_identifier(name)
             print("Name = " + name)
+            print("Father = " + population.get_name(population.get_father(identifier)))
+            print("Mother = " + population.get_name(population.get_mother(identifier)))
             print("Children:")
-            for i in children:
+            for i in population.get_children(identifier):
                 print(population.get_name(i))
-
+            if show_unconnected:
+                unconnected = UnconnectedIndividuals().find(population, identifier)
+                print("Unconnected with " + name + ":")
+                for i in unconnected:
+                    print(population.get_name(i))
+                
     elif number_of_doubles is not None:
         i = IndividualDoubles()
         identifiers = population.get_identifiers()
