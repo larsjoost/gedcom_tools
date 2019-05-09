@@ -104,7 +104,8 @@ class Individual:
                 self._birth_parser = IndividualBirthParser(line_parser)
             elif line_parser.command[0] == "NAME":
                 name = line_parser.rest
-                name = name.replace('/','')
+                if name is not None:
+                    name = name.replace('/','')
                 self.name = name
             elif line_parser.command[0] == "FAMS":
                 self.families.append(line_parser.command[1])
@@ -251,7 +252,9 @@ class IndividualDoubles:
                 if i != j and population.does_gender_match(i, j) and population.is_year_difference_below(i, j, 5):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
-                    if len(name_i) > 0 and len(name_j) > 0:
+                    name_i_valid = name_i is not None and len(name_i) > 0
+                    name_j_valid = name_j is not None and len(name_j) > 0
+                    if name_i_valid and name_j_valid:
                         first_letter_i = name_i[0].upper()
                         first_letter_j = name_j[0].upper()
                         if first_letter_i == first_letter_j:
