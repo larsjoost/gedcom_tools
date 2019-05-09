@@ -138,14 +138,19 @@ class Population:
         return self.individuals[identifier].gender
     def does_gender_match(self, a, b):
         return self.get_gender(a) == self.get_gender(b)
-    def is_year_difference_below(self, a, b, limit):
+    def year_difference(self, a, b):
         y1 = self.get_birthday(a)
         y2 = self.get_birthday(b)
         y = None
         if y1 is not None and y2 is not None:
-            y = y1.is_year_difference_below(y2, limit)
+            y = y1.year_difference(y2)
+        return y
+    def is_year_difference_below(self, a, b, limit):
+        y = self.year_difference(a, b)
         if y == None:
             y = True
+        else:
+            y = (y < limit)
         return y
     def get_birthday(self, identifier):
         return self.individuals[identifier].birthday
@@ -249,7 +254,8 @@ class IndividualDoubles:
               " name matches has been calculated...")
         for i in identifiers:
             for j in identifiers:
-                if i != j and population.does_gender_match(i, j) and population.is_year_difference_below(i, j, 5):
+                year_difference = population.year_difference(i, j)
+                if i != j and population.does_gender_match(i, j) and (year_difference is None or year_difference < 5):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     name_i_valid = name_i is not None and len(name_i) > 0
@@ -259,21 +265,20 @@ class IndividualDoubles:
                         first_letter_j = name_j[0].upper()
                         if first_letter_i == first_letter_j:
                             score = fuzz.ratio(name_i, name_j)
-                            if score < 100:
-                                if len(doubles) > 0:
-                                    lowest_score, name1, id1, name2, id2 = doubles[-1]
-                                else:
-                                    lowest_score = 0
-                                if score > lowest_score:
-                                    match_exists = False
-                                    for s, n1, i1, n2, i2 in doubles:
-                                        if (i in (i1, i2)) and (j in (i1, i2)):
-                                            match_exists = True
-                                            break
-                                    if not match_exists:
-                                        doubles.append((score, name_i, i, name_j, j))
-                                        doubles.sort(key=operator.itemgetter(0), reverse=True)
-                                        doubles = doubles[0:size]
+                            if len(doubles) > 0:
+                                lowest_score, name1, id1, name2, id2, yd = doubles[-1]
+                            else:
+                                lowest_score = 0
+                            if score > lowest_score:
+                                match_exists = False
+                                for s, n1, i1, n2, i2, y in doubles:
+                                    if (i in (i1, i2)) and (j in (i1, i2)):
+                                        match_exists = True
+                                        break
+                                if not match_exists:
+                                    doubles.append((score, name_i, i, name_j, j, year_difference))
+                                    doubles.sort(key=operator.itemgetter(0), reverse=True)
+                                    doubles = doubles[0:size]
                 if (count % dot_size) == 0:
                     sys.stdout.write('.')
                     sys.stdout.flush()
