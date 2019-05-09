@@ -31,11 +31,30 @@ class Family:
 class Date:
     def __init__(self, date):
         self.date = date
+    def is_datetime(self):
+        return isinstance(self.date, datetime.datetime)
+    def get_year(self):
+        if self.is_datetime():
+            return self.date.date().year
+        return None
     def __str__(self):
-        if isinstance(self.date, datetime.datetime):
-            return str(self.date.date().year)
+        if self.is_datetime():
+            return str(self.get_year())
         else:
             return self.date
+    def year_difference(self, date):
+        if date is not None:
+            y1 = self.get_year()
+            y2 = date.get_year()
+            if y1 is not None and y2 is not None:
+                return abs(y1 - y2)
+        return None
+    def is_year_difference_below(self, data, limit):
+        d = self.year_difference(data)
+        if d is not None:
+            return (d < limit)
+        return None
+    
 class DateParser:
     def _parse(self, date):
         supported_formats = ["%d %b %Y", "%Y", "ABT %Y", "AFT %Y", "BEF %Y"]
@@ -60,6 +79,7 @@ class IndividualBirthParser:
         if line_parser.command[0] == "DATE":
             self.date = self.date_parser.parse(line_parser.rest)
         return self
+    
 class Individual:
     def __init__(self, identifier):
         self.identifier = identifier
@@ -109,6 +129,17 @@ class Population:
         return self.individuals[identifier].name
     def get_gender(self, identifier):
         return self.individuals[identifier].gender
+    def does_gender_match(self, a, b):
+        return self.get_gender(a) == self.get_gender(b)
+    def is_year_difference_below(self, a, b, limit):
+        y1 = self.get_birthday(a)
+        y2 = self.get_birthday(b)
+        y = None
+        if y1 is not None and y2 is not None:
+            y = y1.is_year_difference_below(y2, limit)
+        if y == None:
+            y = True
+        return y
     def get_birthday(self, identifier):
         return self.individuals[identifier].birthday
     def get_names(self, identifiers=None):
@@ -197,7 +228,7 @@ class IndividualDoubles:
               " name matches has been calculated...")
         for i in identifiers:
             for j in identifiers:
-                if i != j and population.get_gender(i) == population.get_gender(j):
+                if i != j and population.does_gender_match(i, j) and population.is_year_difference_below(i, j, 5):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     score = fuzz.ratio(name_i, name_j)
