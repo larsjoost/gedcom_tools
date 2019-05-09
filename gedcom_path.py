@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys, getopt, operator
+import sys, getopt, operator, datetime
 
 from fuzzywuzzy import process
 from fuzzywuzzy import fuzz
@@ -28,15 +28,37 @@ class Family:
         elif line_parser.command[0] == "WIFE":
             self.wife = line_parser.command[1]
 
+class Date:
+    def __init__(self, date):
+        self.date = date
+    def __str__(self):
+        if isinstance(self.date, datetime.datetime):
+            return str(self.date.date().year)
+        else:
+            return self.date
+class DateParser:
+    def _parse(self, date):
+        supported_formats = ["%d %b %Y", "%Y", "ABT %Y", "AFT %Y", "BEF %Y"]
+        for i in supported_formats:
+            try:
+                parsed_date = datetime.datetime.strptime(date, i)
+                return parsed_date
+            except ValueError:
+                pass
+        return date
+    def parse(self, date):
+        return Date(self._parse(date))
+    
 class IndividualBirthParser:
     def __init__(self, line_parser):
         self.date = None
         self.index = line_parser.index
+        self.date_parser = DateParser()
     def parse_command(self, line_parser):
         if line_parser.index <= self.index:
             return None
         if line_parser.command[0] == "DATE":
-            self.date = line_parser.rest
+            self.date = self.date_parser.parse(line_parser.rest)
         return self
 class Individual:
     def __init__(self, identifier):
@@ -153,7 +175,7 @@ class Population:
         x = format
         x = x.replace("%n", self.get_name(identifier))
         x = x.replace("%g", self.get_gender(identifier))
-        x = x.replace("%b", self.get_birthday(identifier))
+        x = x.replace("%b", str(self.get_birthday(identifier)))
         return x
     def print_branches(self, tree, format):
         count = 1
