@@ -127,13 +127,18 @@ class Population:
                 if matches:
                     matched_branches.append(branch)
         return matched_branches
-    
-    def print_branches(self, tree):
+
+    def apply_format(self, identifier, format):
+        x = format
+        x = x.replace("%n", self.get_name(identifier))
+        x = x.replace("%s", self.get_sex(identifier))
+        return x
+    def print_branches(self, tree, format):
         count = 1
         for branch in tree:
             print("# Branch number " + str(count))
             for x in branch:
-                print(self.get_name(x))
+                print(self.apply_format(x, format))
             count += 1
 
 class IndividualDoubles:
@@ -251,14 +256,15 @@ class FileParser:
             population.add_children(family.wife, family.children)
 
 def usage():
-    print('gedcom_path.py -f <filename> -n <list> -d <number>')
+    print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format>')
     
 def main(argv):
     inputfile = None
     names = None
     number_of_doubles = None
+    format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -272,6 +278,8 @@ def main(argv):
             names = arg.split(',')
         elif opt == "-d":
             number_of_doubles = int(arg)
+        elif opt == "-x":
+            format = arg
 
     if inputfile is None:
         print("Input file missing")
@@ -294,7 +302,7 @@ def main(argv):
             ancester_name = names[-1]
             contains_names = names[1:-1]
             tree = population.get_branches(ancester_name, descendent_name, contains_names)
-            population.print_branches(tree)
+            population.print_branches(tree, format)
             if number_of_doubles is not None:
                 individual_doubles = IndividualDoubles()
                 identifiers = [i for sublist in tree for i in sublist]
