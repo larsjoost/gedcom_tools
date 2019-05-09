@@ -217,7 +217,11 @@ class Population:
             count += 1
 
 class IndividualDoubles:
-    
+
+    def print_doubles(self, doubles):
+        for i in doubles:
+            print(str(i))
+            
     def get_doubles(self, population, identifiers, size):
         doubles = []
         dot_size = 10000
@@ -231,28 +235,33 @@ class IndividualDoubles:
                 if i != j and population.does_gender_match(i, j) and population.is_year_difference_below(i, j, 5):
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
-                    score = fuzz.ratio(name_i, name_j)
-                    if score < 100:
-                        if len(doubles) > 0:
-                            lowest_score, name1, id1, name2, id2 = doubles[-1]
-                        else:
-                            lowest_score = 0
-                        if score > lowest_score:
-                            match_exists = False
-                            for s, n1, i1, n2, i2 in doubles:
-                                if (i in (i1, i2)) and (j in (i1, i2)):
-                                    match_exists = True
-                                    break
-                            if not match_exists:
-                                doubles.append((score, name_i, i, name_j, j))
-                                doubles.sort(key=operator.itemgetter(0), reverse=True)
-                                doubles = doubles[0:size]
-                    if (count % dot_size) == 0:
-                        sys.stdout.write('.')
-                        sys.stdout.flush()
-                    if (count % match_display_size) == 0:
-                        print("\nDoubles = " + str(doubles))
-                    count += 1
+                    if len(name_i) > 0 and len(name_j) > 0:
+                        first_letter_i = name_i[0].upper()
+                        first_letter_j = name_j[0].upper()
+                        if first_letter_i == first_letter_j:
+                            score = fuzz.ratio(name_i, name_j)
+                            if score < 100:
+                                if len(doubles) > 0:
+                                    lowest_score, name1, id1, name2, id2 = doubles[-1]
+                                else:
+                                    lowest_score = 0
+                                if score > lowest_score:
+                                    match_exists = False
+                                    for s, n1, i1, n2, i2 in doubles:
+                                        if (i in (i1, i2)) and (j in (i1, i2)):
+                                            match_exists = True
+                                            break
+                                    if not match_exists:
+                                        doubles.append((score, name_i, i, name_j, j))
+                                        doubles.sort(key=operator.itemgetter(0), reverse=True)
+                                        doubles = doubles[0:size]
+                if (count % dot_size) == 0:
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+                if (count % match_display_size) == 0:
+                    print()
+                    self.print_doubles(doubles)
+                count += 1
         return doubles
     
 class LineParser:
@@ -382,7 +391,7 @@ def main(argv):
                 individual_doubles = IndividualDoubles()
                 identifiers = [i for sublist in tree for i in sublist]
                 doubles = individual_doubles.get_doubles(population, identifiers, number_of_doubles)
-                print(str(doubles))
+                individual_doubles.print_doubles(doubles)
         else:
             name = names[0]
             id = population.get_identifier(name)
@@ -396,7 +405,7 @@ def main(argv):
         i = IndividualDoubles()
         identifiers = population.get_identifiers()
         doubles = i.get_doubles(population, identifiers, number_of_doubles)
-        print(str(doubles))
+        i.print_doubles(doubles)
         
 if __name__ == "__main__":
    main(sys.argv[1:])
