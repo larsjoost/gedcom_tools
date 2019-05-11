@@ -102,23 +102,25 @@ class Individual:
                 self.birthday = self._birth_parser.date
                 self._birth_parser = None
         if self._birth_parser is None:
-            if line_parser.command[0] == "BIRT":
-                self._birth_parser = IndividualBirthParser(line_parser)
-            elif line_parser.command[0] == "NAME":
-                name = line_parser.rest
-                if name is not None:
-                    name = name.replace('/','')
-                self.name = name
-            elif line_parser.command[0] == "FAMS":
-                self.families.append(line_parser.command[1])
-            elif line_parser.command[0] == "FAMC":
-                assert self.parent_family is None
-                self.parent_family = line_parser.command[1]
-            elif line_parser.command[0] == "SEX":
-                self.gender = line_parser.command[1]
-            elif line_parser.command[0] == "_MARNM":
-                self.married_name = line_parser.command[1]
-            
+            try:
+                if line_parser.command[0] == "BIRT":
+                    self._birth_parser = IndividualBirthParser(line_parser)
+                elif line_parser.command[0] == "NAME":
+                    name = line_parser.rest
+                    if name is not None:
+                        name = name.replace('/','')
+                    self.name = name
+                elif line_parser.command[0] == "FAMS":
+                    self.families.append(line_parser.command[1])
+                elif line_parser.command[0] == "FAMC":
+                    assert self.parent_family is None
+                    self.parent_family = line_parser.command[1]
+                elif line_parser.command[0] == "SEX":
+                    self.gender = line_parser.command[1]
+                elif line_parser.command[0] == "_MARNM":
+                    self.married_name = line_parser.command[1]
+            except IndexError:
+                pass
 class Population:
     def __init__(self):
         self.individuals = {}
@@ -240,7 +242,8 @@ class Population:
 
     def apply_format(self, identifier, format):
         x = format
-        x = x.replace("%n", self.get_name(identifier))
+        name = self.get_name(identifier)
+        x = x.replace("%n", name if name is not None else "unknown")
         x = x.replace("%g", self.get_gender(identifier))
         x = x.replace("%b", str(self.get_birthday(identifier)))
         return x
@@ -490,7 +493,7 @@ def main(argv):
                     else:
                         married_name = ""
                     print(name + married_name)
-                
+                print("Found " + str(len(unconnected)) + " unconnected individuals")
     elif number_of_doubles is not None:
         i = IndividualDoubles()
         identifiers = population.get_identifiers()
