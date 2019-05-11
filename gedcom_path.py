@@ -9,7 +9,7 @@ class Family:
     def __init__(self, identifier, population):
         self.identifier = identifier
         self.population = population
-        self.husbond = None
+        self.husbond = None 
         self.wife = None
         self.children = []
     def to_string(self):
@@ -87,11 +87,13 @@ class Individual:
         self.children = []
         self.father = None
         self.mother = None
+        self.spouses = []
         self.families = []
         self.parent_family = None
         self.gender = None
         self.birthday = None
         self._birth_parser = None
+        self.married_name = None
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
     def parse_command(self, line_parser):
@@ -114,6 +116,8 @@ class Individual:
                 self.parent_family = line_parser.command[1]
             elif line_parser.command[0] == "SEX":
                 self.gender = line_parser.command[1]
+            elif line_parser.command[0] == "_MARNM":
+                self.married_name = line_parser.command[1]
             
 class Population:
     def __init__(self):
@@ -130,10 +134,15 @@ class Population:
         self.individuals[identifier].father = father
     def add_mother(self, identifier, mother):
         self.individuals[identifier].mother = mother
+    def add_spouse(self, identifier, spouse):
+        if None not in (identifier, spouse):
+            self.individuals[identifier].spouses.append(spouse)
     def get_individual(self, identifier):
         return self.individuals[identifier]
     def get_name(self, identifier):
         return self.individuals[identifier].name
+    def get_married_name(self, identifier):
+        return self.individuals[identifier].married_name
     def get_gender(self, identifier):
         return self.individuals[identifier].gender
     def does_gender_match(self, a, b):
@@ -165,6 +174,8 @@ class Population:
         return None
     def get_identifiers(self):
         return self.individuals.keys()
+    def is_identifier(self, identifier):
+        return identifier in self.individuals.keys()
     def find_closest_match(self, name):
         return process.extractOne(name, self.get_names())[0]
     def get_children(self, identifier):
@@ -175,9 +186,12 @@ class Population:
         return self.get_individual(identifier).mother
     def get_parents(self, identifier):
         return [self.get_father(identifier), self.get_mother(identifier)]
+    def get_spouses(self, identifier):
+        return self.get_individual(identifier).spouses
     def get_family_members(self, identifier):
         x = self.get_children(identifier).copy()
         x.extend(self.get_parents(identifier))
+        x.extend(self.get_spouses(identifier))
         return x
     def get_name_and_id(self, identifier):
         return self.get_name(identifier) + "(" + identifier + ")"
@@ -255,7 +269,8 @@ class IndividualDoubles:
         for i in identifiers:
             for j in identifiers:
                 year_difference = population.year_difference(i, j)
-                if i != j and population.does_gender_match(i, j) and (year_difference is None or year_difference < 2):
+                year_difference_ok = (year_difference is not None and year_difference < 2)
+                if i != j and population.does_gender_match(i, j) and year_difference_ok:
                     name_i = population.get_name(i)
                     name_j = population.get_name(j)
                     name_i_valid = name_i is not None and len(name_i) > 0
@@ -380,12 +395,18 @@ class FileParser:
             family = families[i]
             population.add_children(family.husbond, family.children)
             population.add_children(family.wife, family.children)
+            population.add_spouse(family.husbond, family.wife)
+            population.add_spouse(family.wife, family.husbond)
             for i in family.children:
                 population.add_father(i, family.husbond)
                 population.add_mother(i, family.wife)
             
 def usage():
     print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format> -u')
+    print('-f <name>   GEDCOM file name')
+    print('-n <list>   Show branch containing all names in list')
+    print('-u          Show unconnected individuals of branch specified by -n parameter')
+    print('-d <number> Show <number> of doubles')
     
 def main(argv):
     inputfile = None
@@ -426,10 +447,8 @@ def main(argv):
     file_parser.parse_file(content, population)
 
     if names is not None:
-
-        names = [population.find_closest_match(i) for i in names]
-
         if len(names) > 1:
+            names = [population.find_closest_match(i) for i in names]
             descendent_name = names[0]
             ancester_name = names[-1]
             contains_names = names[1:-1]
@@ -442,25 +461,42 @@ def main(argv):
                 individual_doubles.print_doubles(doubles)
         else:
             name = names[0]
-            identifier = population.get_identifier(name)
+            if population.is_identifier(name):
+                identifier = name
+                name = population.get_name(identifier)
+                if name is None:
+                    name = "unknown"
+            else:
+                name = population.find_closest_match(name)
+                identifier = population.get_identifier(name)
             print("Name = " + name)
-            print("Father = " + population.get_name(population.get_father(identifier)))
-            print("Mother = " + population.get_name(population.get_mother(identifier)))
-            print("Children:")
-            for i in population.get_children(identifier):
-                print(population.get_name(i))
+            print("Identifier = " + identifier)
+            father = population.get_father(identifier)
+            mother = population.get_mother(identifier)
+            print("Father = " + ("unknown" if father is None else population.get_name(father)))
+            print("Mother = " + ("unknown" if mother is None else population.get_name(mother)))
+            print("Spouses: " + str(population.get_names(population.get_spouses(identifier))))
+            print("Children: " + str(population.get_names(population.get_children(identifier))))
             if show_unconnected:
                 unconnected = UnconnectedIndividuals().find(population, identifier)
                 print("Unconnected with " + name + ":")
                 for i in unconnected:
-                    print(population.get_name(i))
+                    name = population.get_name(i)
+                    if name is None:
+                        name = i
+                    married_name = population.get_married_name(i)
+                    if married_name is not None:
+                        married_name = " (" + married_name + ")"
+                    else:
+                        married_name = ""
+                    print(name + married_name)
                 
     elif number_of_doubles is not None:
         i = IndividualDoubles()
         identifiers = population.get_identifiers()
         doubles = i.get_doubles(population, identifiers, number_of_doubles)
         i.print_doubles(doubles)
-        
+
 if __name__ == "__main__":
    main(sys.argv[1:])
 
