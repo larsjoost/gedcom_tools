@@ -246,16 +246,16 @@ class Population:
                     matched_branches.append(branch)
         return matched_branches
 
-    def unknown_when_none(self, text):
-        return str(text) if text is not None else "unknown"
+    def default_when_none(self, text, default="unknown"):
+        return str(text) if text is not None else default
     
     def apply_format(self, identifier, format):
         x = format
         name = self.get_name(identifier)
-        x = x.replace("%n", self.unknown_when_none(name))
+        x = x.replace("%n", self.default_when_none(name))
         x = x.replace("%g", self.get_gender(identifier))
-        x = x.replace("%b", self.unknown_when_none(self.get_birthday(identifier)))
-        x = x.replace("%o", self.unknown_when_none(self.get_occupation(identifier)))
+        x = x.replace("%b", self.default_when_none(self.get_birthday(identifier), ""))
+        x = x.replace("%o", self.default_when_none(self.get_occupation(identifier)))
         return x
     def print_branches(self, tree, format, dot_format):
         count = 1
@@ -285,14 +285,14 @@ class Population:
             print("}")
                 
     def print_identifier(self, identifier):
-        print("Name       = " + self.unknown_when_none(self.get_name(identifier)))
+        print("Name       = " + self.default_when_none(self.get_name(identifier)))
         print("Identifier = " + identifier)
-        print("Gender     = " + self.unknown_when_none(self.get_gender(identifier)))
+        print("Gender     = " + self.default_when_none(self.get_gender(identifier)))
         father = self.get_father(identifier)
-        father_name = "unknown" if father is None else self.unknown_when_none(self.get_name(father))
+        father_name = "unknown" if father is None else self.default_when_none(self.get_name(father))
         print("Father     = " + father_name)
         mother = self.get_mother(identifier)
-        mother_name = "unknown" if mother is None else self.unknown_when_none(self.get_name(mother))
+        mother_name = "unknown" if mother is None else self.default_when_none(self.get_name(mother))
         print("Mother     = " + mother_name)
         print("Spouses    = " + str(self.get_names(self.get_spouses(identifier))))
         print("Children   = " + str(self.get_names(self.get_children(identifier))))
