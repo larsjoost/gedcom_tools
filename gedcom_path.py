@@ -248,14 +248,26 @@ class Population:
 
     def default_when_none(self, text, default="unknown"):
         return str(text) if text is not None else default
+
+    def limited_text(self, text, limit):
+        if text is not None:
+            if limit is not None:
+                if len(text) > limit:
+                    text = text[:limit] + "..."
+        return text
     
-    def apply_format(self, identifier, format):
+    def apply_format(self, identifier, format, occupation_limit=None):
         x = format
         name = self.get_name(identifier)
         x = x.replace("%n", self.default_when_none(name))
         x = x.replace("%g", self.get_gender(identifier))
         x = x.replace("%b", self.default_when_none(self.get_birthday(identifier), ""))
-        x = x.replace("%o", self.default_when_none(self.get_occupation(identifier)))
+        try:
+            occupation = self.get_occupation(identifier)[0]
+            occupation = self.limited_text(occupation, occupation_limit) + ", "
+        except IndexError:
+            occupation = ""
+        x = x.replace("%o", occupation)
         return x
     def print_branches(self, tree, format, dot_format):
         count = 1
@@ -269,8 +281,9 @@ class Population:
             for x in branch:
                 if dot_format:
                     if previous_identifier is not None:
-                        n1 = self.apply_format(previous_identifier, format).replace('"', '\'')
-                        n2 = self.apply_format(x, format).replace('"', '\'')
+                        occupation_limit = 30
+                        n1 = self.apply_format(previous_identifier, format, occupation_limit).replace('"', '\'')
+                        n2 = self.apply_format(x, format, occupation_limit).replace('"', '\'')
                         n = '"' + n1 + '" -> "' + n2 + '"'
                         if n not in dot_outputs:
                             print(n)
