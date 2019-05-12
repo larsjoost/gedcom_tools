@@ -298,16 +298,30 @@ class Population:
         print("Children   = " + str(self.get_names(self.get_children(identifier))))
 
 class PopulationValidator:
-    def validate(self, population):
+    def validate(self, population, validation_options, identifiers=None):
+        if identifiers is None:
+            identifiers = population.get_identifiers()
+        validate_gender = ("gender" in validation_options)
+        validate_occupation = ("occupation" in validation_options)
         none_identifiers = 0
         errors_in_gender = 0
-        for i in population.get_identifiers():
+        occupation_text_limit = 100
+        for i in identifiers:
             if i is not None:
-                gender = population.get_gender(i) 
-                if gender is None or gender not in ('M', 'F'):
-                    population.print_identifier(i)
-                    print("-----------------------------------------------")
-                    errors_in_gender += 1
+                if validate_gender:
+                    gender = population.get_gender(i) 
+                    if gender is None or gender not in ('M', 'F'):
+                        population.print_identifier(i)
+                        print("-----------------------------------------------")
+                        errors_in_gender += 1
+                if validate_occupation:
+                    name = population.get_name(i)
+                    if name is not None:
+                        for occupation in population.get_occupation(i):
+                            if occupation is not None and len(occupation) > occupation_text_limit:
+                                print(name + " occupation text exceeds limit:")
+                                print(occupation)
+                                print("-----------------------------------------------")
             else:
                 none_identifiers += 1
         if none_identifiers > 0:
@@ -476,7 +490,7 @@ def usage():
     print('-d <number> Show <number> of doubles')
     print('-o <format> Output format (default: stdout)')
     print('            dot : Dot format displayed by Graphviz')
-    print('-e          Validate data')
+    print('-e <list>   Validate (list = gender,occupation)')
     print('-x <format> Show output in <format> (default = %n)')
     print('            %n : name')
     print('            %g : gender')
@@ -489,11 +503,11 @@ def main(argv):
     number_of_doubles = None
     show_unconnected = False
     direct = False
-    validate = False
+    validation_options = None
     dot_format = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:uveo:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:uve:o:",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -513,7 +527,7 @@ def main(argv):
             show_unconnected = True
             direct = True
         elif opt == "-e":
-            validate = True
+            validation_options = arg.split(',')
         elif opt == "-o":
             dot_format = (arg == "dot")
         elif opt == "-x":
@@ -530,9 +544,6 @@ def main(argv):
     population = Population()
     file_parser = FileParser()
     file_parser.parse_file(content, population)
-
-    if validate:
-        PopulationValidator().validate(population)
     
     if names is not None:
         if len(names) > 1:
@@ -544,11 +555,14 @@ def main(argv):
             contains_names = matched_names[1:-1]
             tree = population.get_branches(ancester_name, descendent_name, contains_names)
             population.print_branches(tree, format, dot_format)
+            identifiers = [i for sublist in tree for i in sublist]
+            unique_identifiers = list(dict.fromkeys(identifiers))
             if number_of_doubles is not None:
                 individual_doubles = IndividualDoubles()
-                identifiers = [i for sublist in tree for i in sublist]
-                doubles = individual_doubles.get_doubles(population, identifiers, number_of_doubles)
+                doubles = individual_doubles.get_doubles(population, unique_identifiers, number_of_doubles)
                 individual_doubles.print_doubles(doubles)
+            if validation_options is not None:
+                PopulationValidator().validate(population, validation_options, unique_identifiers)
         else:
             name = names[0]
             if population.is_identifier(name):
@@ -580,6 +594,8 @@ def main(argv):
         identifiers = population.get_identifiers()
         doubles = i.get_doubles(population, identifiers, number_of_doubles)
         i.print_doubles(doubles)
+    elif validation_options is not None:
+        PopulationValidator().validate(population, validation_options)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
