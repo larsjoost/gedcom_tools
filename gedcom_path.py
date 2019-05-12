@@ -94,6 +94,7 @@ class Individual:
         self.birthday = None
         self._birth_parser = None
         self.married_name = None
+        self.occupation = None
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
     def parse_command(self, line_parser):
@@ -119,6 +120,8 @@ class Individual:
                     self.gender = line_parser.command[1]
                 elif line_parser.command[0] == "_MARNM":
                     self.married_name = line_parser.command[1]
+                elif line_parser.command[0] == "OCCU":
+                    self.occupation = line_parser.rest
             except IndexError:
                 pass
 class Population:
@@ -147,6 +150,8 @@ class Population:
         return self.individuals[identifier].married_name
     def get_gender(self, identifier):
         return self.individuals[identifier].gender
+    def get_occupation(self, identifier):
+        return self.individuals[identifier].occupation
     def does_gender_match(self, a, b):
         return self.get_gender(a) == self.get_gender(b)
     def year_difference(self, a, b):
@@ -240,12 +245,16 @@ class Population:
                     matched_branches.append(branch)
         return matched_branches
 
+    def unknown_when_none(self, text):
+        return str(text) if text is not None else "unknown"
+    
     def apply_format(self, identifier, format):
         x = format
         name = self.get_name(identifier)
-        x = x.replace("%n", name if name is not None else "unknown")
+        x = x.replace("%n", self.unknown_when_none(name))
         x = x.replace("%g", self.get_gender(identifier))
-        x = x.replace("%b", str(self.get_birthday(identifier)))
+        x = x.replace("%b", self.unknown_when_none(self.get_birthday(identifier)))
+        x = x.replace("%o", self.unknown_when_none(self.get_occupation(identifier)))
         return x
     def print_branches(self, tree, format):
         count = 1
@@ -307,17 +316,20 @@ class IndividualDoubles:
         return doubles
 
 class UnconnectedIndividuals:
-    def mark_connections(self, population, connected, identifier):
+    def mark_connections(self, population, connected, identifier, direct):
         if not connected[identifier]:
             connected[identifier] = True
-            family_members = population.get_family_members(identifier)
+            if direct:
+                family_members = population.get_parents(identifier)
+            else:
+                family_members = population.get_family_members(identifier)
             for i in family_members:
                 if i is not None:
-                    self.mark_connections(population, connected, i)
-    def find(self, population, identifier):
+                    self.mark_connections(population, connected, i, direct)
+    def find(self, population, identifier, direct):
         connected = dict((i, False) for i in population.get_identifiers())
         sys.setrecursionlimit(len(connected))
-        self.mark_connections(population, connected, identifier)
+        self.mark_connections(population, connected, identifier, direct)
         unconnected = []
         for i in connected.keys():
             if not connected[i]:
@@ -405,20 +417,23 @@ class FileParser:
                 population.add_mother(i, family.wife)
             
 def usage():
-    print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format> -u')
+    print('gedcom_path.py -f <filename> -n <list> -d <number> -x <format> -u -x <format>')
     print('-f <name>   GEDCOM file name')
     print('-n <list>   Show branch containing all names in list')
     print('-u          Show unconnected individuals of branch specified by -n parameter')
+    print('-v          Show individuals not directly connected to individual specified by -n parameter')
     print('-d <number> Show <number> of doubles')
+    print('-x <format> Show output in <format>')
     
 def main(argv):
     inputfile = None
     names = None
     number_of_doubles = None
     show_unconnected = False
+    direct = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:u",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:uv",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -434,6 +449,9 @@ def main(argv):
             number_of_doubles = int(arg)
         elif opt == "-u":
             show_unconnected = True
+        elif opt == "-v":
+            show_unconnected = True
+            direct = True
         elif opt == "-x":
             format = arg
 
@@ -451,10 +469,11 @@ def main(argv):
 
     if names is not None:
         if len(names) > 1:
-            names = [population.find_closest_match(i) for i in names]
-            descendent_name = names[0]
-            ancester_name = names[-1]
-            contains_names = names[1:-1]
+            matched_names = [population.find_closest_match(i) for i in names]
+            print("The names " + str(names) + " matched the names " + str(matched_names))
+            descendent_name = matched_names[0]
+            ancester_name = matched_names[-1]
+            contains_names = matched_names[1:-1]
             tree = population.get_branches(ancester_name, descendent_name, contains_names)
             population.print_branches(tree, format)
             if number_of_doubles is not None:
@@ -481,7 +500,7 @@ def main(argv):
             print("Spouses: " + str(population.get_names(population.get_spouses(identifier))))
             print("Children: " + str(population.get_names(population.get_children(identifier))))
             if show_unconnected:
-                unconnected = UnconnectedIndividuals().find(population, identifier)
+                unconnected = UnconnectedIndividuals().find(population, identifier, direct)
                 print("Unconnected with " + name + ":")
                 for i in unconnected:
                     name = population.get_name(i)
