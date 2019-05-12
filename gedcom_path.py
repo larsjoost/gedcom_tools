@@ -124,6 +124,7 @@ class Individual:
                     self.occupation = line_parser.rest
             except IndexError:
                 pass
+
 class Population:
     def __init__(self):
         self.individuals = {}
@@ -263,7 +264,33 @@ class Population:
             for x in branch:
                 print(self.apply_format(x, format))
             count += 1
+    def print_identifier(self, identifier):
+        print("Name       = " + self.unknown_when_none(self.get_name(identifier)))
+        print("Identifier = " + identifier)
+        print("Gender     = " + self.unknown_when_none(self.get_gender(identifier)))
+        father = self.get_father(identifier)
+        father_name = "unknown" if father is None else self.unknown_when_none(self.get_name(father))
+        print("Father     = " + father_name)
+        mother = self.get_mother(identifier)
+        mother_name = "unknown" if mother is None else self.unknown_when_none(self.get_name(mother))
+        print("Mother     = " + mother_name)
+        print("Spouses    = " + str(self.get_names(self.get_spouses(identifier))))
+        print("Children   = " + str(self.get_names(self.get_children(identifier))))
 
+class PopulationValidator:
+    def validate(self, population):
+        none_identifiers = 0
+        for i in population.get_identifiers():
+            if i is not None:
+                gender = population.get_gender(i) 
+                if gender is None or gender not in ('M', 'F'):
+                    population.print_identifier(i)
+                    print("-----------------------------------------------")
+            else:
+                none_identifiers += 1
+        if none_identifiers > 0:
+            print("Found " + str(none_identifiers) + " None identifier in population")
+            
 class IndividualDoubles:
 
     def print_doubles(self, doubles):
@@ -423,7 +450,12 @@ def usage():
     print('-u          Show unconnected individuals of branch specified by -n parameter')
     print('-v          Show individuals not directly connected to individual specified by -n parameter')
     print('-d <number> Show <number> of doubles')
-    print('-x <format> Show output in <format>')
+    print('-e          Validate data')
+    print('-x <format> Show output in <format> (default = %n)')
+    print('            %n : name')
+    print('            %g : gender')
+    print('            %b : birthday')
+    print('            %o : occupation')
     
 def main(argv):
     inputfile = None
@@ -431,9 +463,10 @@ def main(argv):
     number_of_doubles = None
     show_unconnected = False
     direct = False
+    validate = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:uv",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:uve",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -452,6 +485,8 @@ def main(argv):
         elif opt == "-v":
             show_unconnected = True
             direct = True
+        elif opt == "-e":
+            validate = True
         elif opt == "-x":
             format = arg
 
@@ -467,6 +502,9 @@ def main(argv):
     file_parser = FileParser()
     file_parser.parse_file(content, population)
 
+    if validate:
+        PopulationValidator().validate(population)
+    
     if names is not None:
         if len(names) > 1:
             matched_names = [population.find_closest_match(i) for i in names]
@@ -492,13 +530,7 @@ def main(argv):
                 name = population.find_closest_match(name)
                 identifier = population.get_identifier(name)
             print("Name = " + name)
-            print("Identifier = " + identifier)
-            father = population.get_father(identifier)
-            mother = population.get_mother(identifier)
-            print("Father = " + ("unknown" if father is None else population.get_name(father)))
-            print("Mother = " + ("unknown" if mother is None else population.get_name(mother)))
-            print("Spouses: " + str(population.get_names(population.get_spouses(identifier))))
-            print("Children: " + str(population.get_names(population.get_children(identifier))))
+            population.print_identifier(identifier)
             if show_unconnected:
                 unconnected = UnconnectedIndividuals().find(population, identifier, direct)
                 print("Unconnected with " + name + ":")
