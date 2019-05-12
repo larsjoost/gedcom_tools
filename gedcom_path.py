@@ -259,6 +259,9 @@ class Population:
         return x
     def print_branches(self, tree, format, dot_format):
         count = 1
+        dot_outputs = []
+        if dot_format:
+            print("digraph family_tree {")
         for branch in tree:
             if not dot_format:
                 print("# Branch number " + str(count))
@@ -266,15 +269,21 @@ class Population:
             for x in branch:
                 if dot_format:
                     if previous_identifier is not None:
-                        n1 = self.unknown_when_none(self.get_name(previous_identifier))
-                        n2 = self.unknown_when_none(self.get_name(x))
-                        print(n1 + " -> " + n2)
+                        n1 = self.apply_format(previous_identifier, format).replace('"', '\'')
+                        n2 = self.apply_format(x, format).replace('"', '\'')
+                        n = '"' + n1 + '" -> "' + n2 + '"'
+                        if n not in dot_outputs:
+                            print(n)
+                            dot_outputs.append(n)
                     previous_identifier = x
                 else:
                     print(self.apply_format(x, format))
             count += 1
             if not dot_format:
                 print("---------------------------------------------------")
+        if dot_format:
+            print("}")
+                
     def print_identifier(self, identifier):
         print("Name       = " + self.unknown_when_none(self.get_name(identifier)))
         print("Identifier = " + identifier)
