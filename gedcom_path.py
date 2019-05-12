@@ -94,7 +94,7 @@ class Individual:
         self.birthday = None
         self._birth_parser = None
         self.married_name = None
-        self.occupation = None
+        self.occupation = []
     def __repr__(self):
         return self.name + ", children = " + str(self.children)
     def parse_command(self, line_parser):
@@ -121,7 +121,7 @@ class Individual:
                 elif line_parser.command[0] == "_MARNM":
                     self.married_name = line_parser.command[1]
                 elif line_parser.command[0] == "OCCU":
-                    self.occupation = line_parser.rest
+                    self.occupation.append(line_parser.rest)
             except IndexError:
                 pass
 
@@ -257,13 +257,24 @@ class Population:
         x = x.replace("%b", self.unknown_when_none(self.get_birthday(identifier)))
         x = x.replace("%o", self.unknown_when_none(self.get_occupation(identifier)))
         return x
-    def print_branches(self, tree, format):
+    def print_branches(self, tree, format, dot_format):
         count = 1
         for branch in tree:
-            print("# Branch number " + str(count))
+            if not dot_format:
+                print("# Branch number " + str(count))
+            previous_identifier = None
             for x in branch:
-                print(self.apply_format(x, format))
+                if dot_format:
+                    if previous_identifier is not None:
+                        n1 = self.unknown_when_none(self.get_name(previous_identifier))
+                        n2 = self.unknown_when_none(self.get_name(x))
+                        print(n1 + " -> " + n2)
+                    previous_identifier = x
+                else:
+                    print(self.apply_format(x, format))
             count += 1
+            if not dot_format:
+                print("---------------------------------------------------")
     def print_identifier(self, identifier):
         print("Name       = " + self.unknown_when_none(self.get_name(identifier)))
         print("Identifier = " + identifier)
@@ -280,16 +291,20 @@ class Population:
 class PopulationValidator:
     def validate(self, population):
         none_identifiers = 0
+        errors_in_gender = 0
         for i in population.get_identifiers():
             if i is not None:
                 gender = population.get_gender(i) 
                 if gender is None or gender not in ('M', 'F'):
                     population.print_identifier(i)
                     print("-----------------------------------------------")
+                    errors_in_gender += 1
             else:
                 none_identifiers += 1
         if none_identifiers > 0:
             print("Found " + str(none_identifiers) + " None identifier in population")
+        if errors_in_gender > 0:
+            print("Found " + str(errors_in_gender) + " errors in gender")
             
 class IndividualDoubles:
 
@@ -450,6 +465,8 @@ def usage():
     print('-u          Show unconnected individuals of branch specified by -n parameter')
     print('-v          Show individuals not directly connected to individual specified by -n parameter')
     print('-d <number> Show <number> of doubles')
+    print('-o <format> Output format (default: stdout)')
+    print('            dot : Dot format displayed by Graphviz')
     print('-e          Validate data')
     print('-x <format> Show output in <format> (default = %n)')
     print('            %n : name')
@@ -464,9 +481,10 @@ def main(argv):
     show_unconnected = False
     direct = False
     validate = False
+    dot_format = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:uve",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hf:n:d:x:uveo:",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -487,6 +505,8 @@ def main(argv):
             direct = True
         elif opt == "-e":
             validate = True
+        elif opt == "-o":
+            dot_format = (arg == "dot")
         elif opt == "-x":
             format = arg
 
@@ -508,12 +528,13 @@ def main(argv):
     if names is not None:
         if len(names) > 1:
             matched_names = [population.find_closest_match(i) for i in names]
-            print("The names " + str(names) + " matched the names " + str(matched_names))
+            if not dot_format:
+                print("The names " + str(names) + " matched the names " + str(matched_names))
             descendent_name = matched_names[0]
             ancester_name = matched_names[-1]
             contains_names = matched_names[1:-1]
             tree = population.get_branches(ancester_name, descendent_name, contains_names)
-            population.print_branches(tree, format)
+            population.print_branches(tree, format, dot_format)
             if number_of_doubles is not None:
                 individual_doubles = IndividualDoubles()
                 identifiers = [i for sublist in tree for i in sublist]
