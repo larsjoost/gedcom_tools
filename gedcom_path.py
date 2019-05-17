@@ -294,7 +294,7 @@ class Population:
         try:
             occupation = self.get_occupation(identifier)[0]
             occupation = self.limited_text(occupation, occupation_limit) + ", "
-        except IndexError:
+        except (IndexError, TypeError) as e:
             occupation = ""
         x = x.replace("%o", occupation)
         return x
