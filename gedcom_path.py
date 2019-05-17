@@ -231,6 +231,29 @@ class Population:
                 i.append(ancester_id)
         return tree
 
+    def _search_next_generation(self, identifier):
+        parents = self.get_parents(identifier)
+        longest_branch = None
+        for i in parents:
+            if i is not None:
+                branch = self._search_next_generation(i)
+                assert branch is not None, "Branch of " + self.get_name(i) + " returned None"
+                if longest_branch is None or branch.levels > longest_branch.levels:
+                    longest_branch = branch
+        if longest_branch is None:
+            class Branch: pass
+            longest_branch = Branch()
+            longest_branch.levels = 1
+            longest_branch.branch = [identifier]
+        else:
+            longest_branch.levels += 1
+            longest_branch.branch.append(identifier)
+        return longest_branch
+                
+    def find_longest_branch(self, root_identifier):
+        longest_path = self._search_next_generation(root_identifier)
+        return longest_path.branch
+    
     def get_branches(self, ancester_name, descendent_name, contains_names):
         ancester_id = self.get_identifier(ancester_name)
         descendent_id = self.get_identifier(descendent_name)
@@ -269,6 +292,7 @@ class Population:
             occupation = ""
         x = x.replace("%o", occupation)
         return x
+    
     def print_branches(self, tree, format, dot_format):
         count = 1
         dot_outputs = []
@@ -500,6 +524,7 @@ def usage():
     print('-n <list>   Show branch containing all names in list')
     print('-u          Show unconnected individuals of branch specified by -n parameter')
     print('-v          Show individuals not directly connected to individual specified by -n parameter')
+    print('-l          Show longest branch of individual specified by -n parameter')
     print('-d <number> Show <number> of doubles')
     print('-o <format> Output format (default: stdout)')
     print('            dot : Dot format displayed by Graphviz')
@@ -515,12 +540,13 @@ def main(argv):
     names = None
     number_of_doubles = None
     show_unconnected = False
+    show_longest_branch = None
     direct = False
     validation_options = None
     dot_format = False
     format = "%n"
     try:
-        opts, args = getopt.getopt(argv,"hf:n:d:x:uve:o:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"hd:e:f:ln:o:x:uv",["ifile=","ofile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -536,6 +562,8 @@ def main(argv):
             number_of_doubles = int(arg)
         elif opt == "-u":
             show_unconnected = True
+        elif opt == "-l":
+            show_longest_branch = True
         elif opt == "-v":
             show_unconnected = True
             direct = True
@@ -602,6 +630,10 @@ def main(argv):
                         married_name = ""
                     print(name + married_name)
                 print("Found " + str(len(unconnected)) + " unconnected individuals")
+            if show_longest_branch:
+                longest_branch = population.find_longest_branch(identifier)
+                for i in longest_branch:
+                    print(population.apply_format(i, format))
     elif number_of_doubles is not None:
         i = IndividualDoubles()
         identifiers = population.get_identifiers()
