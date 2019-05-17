@@ -84,6 +84,7 @@ class Individual:
     def __init__(self, identifier):
         self.identifier = identifier
         self.name = None
+        self.name_prefix = None
         self.children = []
         self.father = None
         self.mother = None
@@ -122,6 +123,8 @@ class Individual:
                     self.married_name = line_parser.command[1]
                 elif line_parser.command[0] == "OCCU":
                     self.occupation.append(line_parser.rest)
+                elif line_parser.command[0] == "NPFX":
+                    self.name_prefix = line_parser.rest
             except IndexError:
                 pass
 
@@ -147,6 +150,8 @@ class Population:
         return self.individuals[identifier]
     def get_name(self, identifier):
         return self.individuals[identifier].name
+    def get_name_prefix(self, identifier):
+        return self.individuals[identifier].name_prefix
     def get_married_name(self, identifier):
         return self.individuals[identifier].married_name
     def get_gender(self, identifier):
@@ -284,6 +289,7 @@ class Population:
         name = self.get_name(identifier)
         x = x.replace("%n", self.default_when_none(name))
         x = x.replace("%g", self.get_gender(identifier))
+        x = x.replace("%p", self.default_when_none(self.get_name_prefix(identifier), ""))
         x = x.replace("%b", self.default_when_none(self.get_birthday(identifier), ""))
         try:
             occupation = self.get_occupation(identifier)[0]
