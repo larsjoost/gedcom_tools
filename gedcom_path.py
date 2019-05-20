@@ -536,10 +536,11 @@ def usage():
     print('            dot : Dot format displayed by Graphviz')
     print('-e <list>   Validate (list = gender,occupation)')
     print('-x <format> Show output in <format> (default = %n)')
-    print('            %n : name')
-    print('            %g : gender')
-    print('            %b : birthday')
-    print('            %o : occupation')
+    print('            %n : Name')
+    print('            %g : Gender')
+    print('            %b : Birthday')
+    print('            %o : Occupation')
+    print('            %p : Name prefix')
     
 def main(argv):
     inputfile = None
